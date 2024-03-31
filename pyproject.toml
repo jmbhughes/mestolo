@@ -5,9 +5,10 @@ requires = ["setuptools",
 
 [project]
 name = "mestolo"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
-    "click"
+    "click",
+    "toml"
 ]
 requires-python = ">=3.9"
 authors = [
@@ -29,14 +30,14 @@ classifiers = [
 test = ["pytest", "pytest-doctestplus", "pytest-cov", "ruff", "coverage"]
 docs = ["sphinx", "sphinx-autoapi", "sphinx-automodapi", "pydata-sphinx-theme", "sphinx-favicon", "ipython"]
 
-#[project.scripts]
-#kenosha = "kenosha.cli:main"
+[project.scripts]
+mestolo = "mestolo.cli:main"
 
-#[project.urls]
+[project.urls]
 #Homepage = "https://example.com"
 #Documentation = "https://readthedocs.org"
-#Repository = "https://github.com/punch-mission/thuban.git"
-#"Bug Tracker" = "https://github.com/punch-mission/thuban/issues"
+Repository = "https://github.com/jmbhughes/mestolo.git"
+"Bug Tracker" = "https://github.com/jmbhughes/mestolo/issues"
 #Changelog = "https://github.com/punch-mission/thuban/blob/main/CHANGELOG.md"
 
 [tool.setuptools]

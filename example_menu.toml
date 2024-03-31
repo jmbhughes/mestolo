@@ -1,0 +1,19 @@
+name = "bilbo"
+
+[segment.recipe1]
+path = "recipes.py"
+priority = 10
+trigger = false
+delay = 1
+
+[segment.recipe2]
+path = "recipes.py"
+priority = 100
+trigger = false
+delay = 5
+
+[segment.recipe3]
+path = "recipes.py"
+priority = 100
+trigger = false
+delay = 2
