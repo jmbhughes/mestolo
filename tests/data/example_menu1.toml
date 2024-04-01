@@ -2,7 +2,7 @@ max_simultaneous = 11
 refresh_delay = 3
 
 [recipe.recipe1]
-path = "./data/example_recipes1.py"
+path = "./tests/data/example_recipes1.py"
 priority = 10
 trigger = false
 delay = 1
@@ -10,7 +10,7 @@ escalation_times = [5, 10, 15]
 escalation_values = [20, 30, 50]
 
 [recipe.recipe2]
-path = "./data/example_recipes1.py"
+path = "./tests/data/example_recipes1.py"
 priority = 0
 trigger = false
 delay = 5
@@ -18,7 +18,7 @@ escalation_times = [5, 20]
 escalation_values = [1, 2]
 
 [recipe.recipe3]
-path = "./data/example_recipes1.py"
+path = "./tests/data/example_recipes1.py"
 priority = 100
 trigger = false
 delay = 10

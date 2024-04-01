@@ -14,7 +14,7 @@ def test_recipe_loads_from_config():
     r = Recipe.load_from_config("recipe1", config['recipe']['recipe1'])
     assert isinstance(r, Recipe)
     assert r.name == "recipe1"
-    assert r.path == "./data/example_recipes1.py"
+    assert r.path == "./tests/data/example_recipes1.py"
     assert r.priority == 10
     assert not r.trigger
     assert r.delay == 1
@@ -31,7 +31,7 @@ def test_scheduled_item_creates():
     assert scheduled_item.schedule_time == now
     assert scheduled_item.current_priority == r.priority
     assert scheduled_item.recipe.name == "recipe1"
-    assert scheduled_item.recipe.path == "./data/example_recipes1.py"
+    assert scheduled_item.recipe.path == "./tests/data/example_recipes1.py"
     assert scheduled_item.recipe.priority == 10
     assert not scheduled_item.recipe.trigger
     assert scheduled_item.recipe.delay == 1
