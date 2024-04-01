@@ -1,31 +1,22 @@
-import toml
 
-from multiprocessing import Process
 
 import click
 
+from .chef import Chef
+from .menu import Menu
 from .recipe import Recipe
 
 
-def load_segment(name, segment_config):
+def load_recipe(name, segment_config):
     return Recipe(name, **segment_config)
 
 
 @click.command()
-@click.argument('system_path', type=click.Path(exists=True))
-def main(system_path):
-    system_config = toml.load(system_path)
-    all_recipes = []
-    process_count = 0
-    for segment_name, segment_config in system_config['segment'].items():
-        all_recipes.append(load_segment(segment_name, segment_config))
-
-    print(all_recipes)
-
-    for recipe in all_recipes:
-        p = Process(target=recipe.run)
-        process_count += 1
-        p.start()
+@click.argument('menu_path', type=click.Path(exists=True))
+def main(menu_path):
+    menu = Menu.load_toml(menu_path)
+    chef = Chef(menu)
+    chef.cook()
 
 
 if __name__ == "__main__":

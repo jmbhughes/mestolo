@@ -13,5 +13,4 @@ def recipe2():
 
 
 def recipe3():
-    duration = random.randint(3, 10)
-    time.sleep(duration)
+    time.sleep(0.1)
