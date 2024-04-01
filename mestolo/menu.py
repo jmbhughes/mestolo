@@ -1,6 +1,7 @@
 import toml
 
-from .constants import DEFAULT_REFRESH_DELAY, DEFAULT_SIMULTANEOUS_RATE
+from .constants import (DEFAULT_DURATION, DEFAULT_REFRESH_DELAY,
+                        DEFAULT_SIMULTANEOUS_RATE)
 
 
 class Menu:
@@ -18,6 +19,10 @@ class Menu:
     @property
     def refresh_delay(self):
         return self._contents.get('refresh_delay', DEFAULT_REFRESH_DELAY)
+
+    @property
+    def duration(self):
+        return self._contents.get('duration', DEFAULT_DURATION)
 
     @classmethod
     def load_toml(cls, path):

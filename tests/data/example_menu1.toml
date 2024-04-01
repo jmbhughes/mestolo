@@ -1,5 +1,6 @@
 max_simultaneous = 11
 refresh_delay = 3
+duration = 4
 
 [recipe.recipe1]
 path = "./tests/data/example_recipes1.py"

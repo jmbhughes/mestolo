@@ -51,7 +51,8 @@ class Chef:
         self._scheduled_items = new_schedule
 
     def cook(self):
-        while True:
+        start = time.time()
+        while time.time() - start < self._menu.duration:
             active_cooks = self._clean_processes()
             num_free_cooks = self._menu.max_simultaneous - active_cooks
             print("ACTIVE COOKS", active_cooks, "SCHEDULE LENGTH", self._scheduled_items.qsize())
