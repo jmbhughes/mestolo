@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 from datetime import datetime, timedelta
 
@@ -83,7 +84,9 @@ def test_scheduled_item_comparison():
 
 
 def test_recipe_cooks():
+    parent_conn, child_conn = multiprocessing.Pipe()
+
     config = toml.load(os.path.join(TEST_DIR, "data", "example_menu1.toml"))
     r = Recipe.load_from_config("recipe3", config['recipe']['recipe3'])
-    r.cook()
+    r.cook(child_conn)
     assert True

@@ -2,15 +2,18 @@ import toml
 
 from .constants import (DEFAULT_DURATION, DEFAULT_REFRESH_DELAY,
                         DEFAULT_SIMULTANEOUS_RATE)
+from .recipe import Recipe
 
 
 class Menu:
     def __init__(self, toml_contents):
         self._contents = toml_contents
+        self._recipes = {name: Recipe.load_from_config(name, config)
+                         for name, config in self._contents['recipe'].items()}
 
     @property
     def recipes(self):
-        return self._contents['recipe']
+        return self._recipes
 
     @property
     def max_simultaneous(self):
@@ -23,6 +26,14 @@ class Menu:
     @property
     def duration(self):
         return self._contents.get('duration', DEFAULT_DURATION)
+
+    @property
+    def all_ingredients(self):
+        all_ingredients = set()
+        for recipe in self.recipes.values():
+            all_ingredients.update(set(recipe.inputs))
+            all_ingredients.update(set(recipe.outputs))
+        return all_ingredients
 
     @classmethod
     def load_toml(cls, path):

@@ -29,12 +29,14 @@ class Recipe:
     delay: float
     escalation_times: [float]
     escalation_values: [float]
+    inputs: [str]
+    outputs: [str]
 
-    def cook(self):
-        print(f"running {self.name}")
+    def cook(self, pipe):
+        pipe.send(f"running {self.name}")
         f = load_function(self.path, self.name)
         f()
-        print(f"finished {self.name}")
+        pipe.send(f"finished {self.name}")
 
     @classmethod
     def load_from_config(cls, name, recipe_config):

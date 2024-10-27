@@ -8,6 +8,8 @@ trigger = false
 delay = 1
 escalation_times = [5, 10, 15]
 escalation_values = [20, 30, 50]
+inputs = ['a']
+outputs = ['b']
 
 [recipe.recipe2]
 path = "/Users/jhughes/Desktop/repos/mestolo/recipes.py"
@@ -16,6 +18,8 @@ trigger = false
 delay = 5
 escalation_times = [5, 20]
 escalation_values = [1, 2]
+inputs = []
+outputs = ['c']
 
 [recipe.recipe3]
 path = "/Users/jhughes/Desktop/repos/mestolo/recipes.py"
@@ -24,3 +28,5 @@ trigger = false
 delay = 10
 escalation_times = [15]
 escalation_values = [500]
+inputs = ['b', 'c']
+outputs = ['d']

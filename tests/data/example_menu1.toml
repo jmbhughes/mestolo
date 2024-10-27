@@ -9,6 +9,8 @@ trigger = false
 delay = 1
 escalation_times = [5, 10, 15]
 escalation_values = [20, 30, 50]
+inputs = ['a']
+outputs = ['b']
 
 [recipe.recipe2]
 path = "./tests/data/example_recipes1.py"
@@ -17,6 +19,8 @@ trigger = false
 delay = 5
 escalation_times = [5, 20]
 escalation_values = [1, 2]
+inputs = ['b']
+outputs = ['c']
 
 [recipe.recipe3]
 path = "./tests/data/example_recipes1.py"
@@ -25,3 +29,5 @@ trigger = false
 delay = 10
 escalation_times = [15]
 escalation_values = [500]
+inputs = ['a', 'c']
+outputs = ['d']

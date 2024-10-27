@@ -1,7 +1,10 @@
+import multiprocessing
 import time
 from datetime import datetime
 from multiprocessing import Process
 from queue import PriorityQueue
+
+import networkx as nx
 
 from .menu import Menu
 from .recipe import Recipe, ScheduledItem
@@ -13,21 +16,31 @@ class Chef:
 
         self._scheduled_items = PriorityQueue()
         self._processes = []
+        self._pipes = []
 
         self._all_recipes = {}
         self._last_scheduled = {}
-        for recipe_name, recipe_config in self._menu.recipes.items():
-            recipe = Recipe.load_from_config(recipe_name, recipe_config)
-            self._all_recipes[recipe_name] = recipe
+        self._recipe_graph = nx.DiGraph()
+        self._recipe_graph.add_nodes_from(menu.all_ingredients)
+        for recipe_name, recipe_object in self._menu.recipes.items():
+            self._all_recipes[recipe_name] = recipe_object
+            for input_ingredient in recipe_object.inputs:
+                for output in recipe_object.outputs:
+                    self._recipe_graph.add_edge(input_ingredient, output)
 
-            now = datetime.now()
-            self._scheduled_items.put(ScheduledItem(now, recipe.priority, recipe))
-            self._last_scheduled[recipe_name] = now
+            # recipes with no inputs can be scheduled instantly
+            if not recipe_object.inputs:
+                now = datetime.now()
+                self._scheduled_items.put(ScheduledItem(now, recipe_object.priority, recipe_object))
+                self._last_scheduled[recipe_name] = now
 
     def _cook_recipe(self, recipe: Recipe):
         print(f"cooking {recipe.name}")
-        p = Process(target=recipe.cook)
+        parent_conn, child_conn = multiprocessing.Pipe()
+
+        p = Process(target=recipe.cook, args=(child_conn,))
         self._processes.append(p)
+        self._pipes.append(parent_conn)
         p.start()
 
     def _clean_processes(self):
