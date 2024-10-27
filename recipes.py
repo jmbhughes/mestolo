@@ -1,19 +1,20 @@
 import random
 import time
 
-from prefect import flow
-
 
 def recipe1():
     duration = random.randint(9, 10)
     time.sleep(duration)
+    return "b"
 
-@flow
+
 def recipe2():
     duration = random.randint(3, 10)
     time.sleep(duration)
+    return "c"
 
-@flow
-def recipe3():
+
+def recipe3(b=None, c=None):
     duration = random.randint(3, 10)
     time.sleep(duration)
+    return "d"

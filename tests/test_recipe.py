@@ -5,7 +5,9 @@ from datetime import datetime, timedelta
 import toml
 from freezegun import freeze_time
 
-from mestolo.recipe import Recipe, ScheduledItem
+from mestolo.datetime import DateTimeInterval
+from mestolo.ingredients import IngredientConstraint, ScheduledIngredient
+from mestolo.recipe import Recipe
 
 from . import TEST_DIR
 
@@ -27,8 +29,9 @@ def test_scheduled_item_creates():
     config = toml.load(os.path.join(TEST_DIR, "data", "example_menu1.toml"))
     r = Recipe.load_from_config("recipe1", config['recipe']['recipe1'])
     now = datetime.now()
-    scheduled_item = ScheduledItem(now, r.priority, r)
-    assert isinstance(scheduled_item, ScheduledItem)
+    scheduled_item = ScheduledIngredient(now, r.priority, r, {},
+                                         IngredientConstraint(r.ingredient, DateTimeInterval(None, None)))
+    assert isinstance(scheduled_item, ScheduledIngredient)
     assert scheduled_item.schedule_time == now
     assert scheduled_item.current_priority == r.priority
     assert scheduled_item.recipe.name == "recipe1"
@@ -45,7 +48,8 @@ def test_scheduled_item_escalates():
 
     config = toml.load(os.path.join(TEST_DIR, "data", "example_menu1.toml"))
     r = Recipe.load_from_config("recipe1", config['recipe']['recipe1'])
-    scheduled_item = ScheduledItem(scheduled_time, r.priority, r)
+    scheduled_item = ScheduledIngredient(scheduled_time, r.priority, r, {},
+                                         IngredientConstraint(r.ingredient, DateTimeInterval(None, None)))
 
     with freeze_time(scheduled_time) as frozen_datetime:
         assert scheduled_item.current_priority == 10
@@ -72,8 +76,10 @@ def test_scheduled_item_comparison():
     config = toml.load(os.path.join(TEST_DIR, "data", "example_menu1.toml"))
     r1 = Recipe.load_from_config("recipe1", config['recipe']['recipe1'])
     r2 = Recipe.load_from_config("recipe2", config['recipe']['recipe2'])
-    scheduled_item1 = ScheduledItem(scheduled_time, r1.priority, r1)
-    scheduled_item2 = ScheduledItem(scheduled_time, r2.priority, r2)
+    scheduled_item1 = ScheduledIngredient(scheduled_time, r1.priority, r1, {},
+                                          IngredientConstraint(r1.ingredient, DateTimeInterval(None, None)))
+    scheduled_item2 = ScheduledIngredient(scheduled_time, r2.priority, r2, {},
+                                          IngredientConstraint(r2.ingredient, DateTimeInterval(None, None)))
 
     assert scheduled_item1 != scheduled_item2
     assert scheduled_item1 > scheduled_item2
@@ -84,9 +90,10 @@ def test_scheduled_item_comparison():
 
 
 def test_recipe_cooks():
-    parent_conn, child_conn = multiprocessing.Pipe()
+    cooked_queue = multiprocessing.Queue()
+    error_queue = multiprocessing.Queue()
 
     config = toml.load(os.path.join(TEST_DIR, "data", "example_menu1.toml"))
     r = Recipe.load_from_config("recipe3", config['recipe']['recipe3'])
-    r.cook(child_conn)
+    r.cook([], None, cooked_queue, error_queue)
     assert True
