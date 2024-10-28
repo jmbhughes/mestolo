@@ -1,8 +1,6 @@
-# Mestolo
-
-|          Mestolo           |                                                                                                           "Serving up data, one spoonful at a time."                                                                                                            |
-|:--------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| ![mestolo logo](logo.png)  | Mestolo means "ladle" in Italian. The `mestolo` package was designed to serve up data from the `punchbowl`, the PUNCH mission's calibration code. It is mission agnostic way and can be applied to any pipeline with complex dependencies and scheduling needs. |
+|        **Mestolo**        |                                                                                                           "Serving up data, one spoonful at a time."                                                                                                            |
+|:-------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| ![mestolo logo](logo.png) | Mestolo means "ladle" in Italian. The `mestolo` package was designed to serve up data from the `punchbowl`, the PUNCH mission's calibration code. It is mission agnostic way and can be applied to any pipeline with complex dependencies and scheduling needs. |
 
 ## Features
 
