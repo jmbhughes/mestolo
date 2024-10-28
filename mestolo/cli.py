@@ -41,3 +41,6 @@ def main(menu_path):
 
     monitor_queue.close()
     schedule_queue.close()
+
+    monitor_process.terminate()
+    chef_process.terminate()
