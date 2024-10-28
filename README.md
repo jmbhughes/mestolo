@@ -1,12 +1,13 @@
-|        **Mestolo**        |                                                                                                           "Serving up data, one spoonful at a time."                                                                                                            |
-|:-------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| ![mestolo logo](logo.png) | Mestolo means "ladle" in Italian. The `mestolo` package was designed to serve up data from the `punchbowl`, the PUNCH mission's calibration code. It is mission agnostic way and can be applied to any pipeline with complex dependencies and scheduling needs. |
+|        **Mestolo**        |                                                                                                           "Serving up data, one spoonful at a time."                                                                                                           |
+|:-------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| ![mestolo logo](logo.png) |  Mestolo means "ladle" in Italian. The `mestolo` package was designed to serve up data from the `punchbowl`, the PUNCH mission's calibration code. It is mission agnostic and can be applied to any pipeline with complex dependencies and scheduling needs.   |
 
 ## Features
 
 > [!WARNING]
 > This code is being rapidly developed and likely has bugs. Use caution.
 
+- [x] add priorities and priority escalation
 - [ ] checks for dependency cycles on start
 - [x] handles input and output passing
 - [ ] makes processes clean themselves up instead of periodically checking
@@ -20,3 +21,6 @@
 - [ ] add monitor for status and resource usage
 - [ ] for recipes that are prefect flows, link to the prefect interface?
 - [ ] fully integrate database tracking
+- [ ] add AI credit for logo
+- [ ] create documentation
+- [ ] make easier to define using decorators
