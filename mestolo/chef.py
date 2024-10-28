@@ -1,26 +1,33 @@
-import multiprocessing
+import multiprocessing as mp
 import signal
 import time
 from datetime import datetime
 from enum import Enum
-from multiprocessing import Process
 from queue import Empty, PriorityQueue
+from random import random
 
 import networkx as nx
 
 from .ingredients import IngredientConstraint, ScheduledIngredient
 from .menu import Menu
 
-NodeState = Enum("NodeStates", ['PLANNED', 'SCHEDULED', 'COOKING', 'COOKED', 'UNKNOWN'])
+
+class NodeState(Enum):
+    PLANNED = 1
+    SCHEDULED = 2
+    COOKING = 3
+    COOKED = 4
+    UNKNOWN = 5
 
 class Chef:
-    def __init__(self, menu: Menu):
+    def __init__(self, menu: Menu, monitor_queue = None):
         self._menu = menu
+        self._monitor_pipe = monitor_queue if monitor_queue is not None else mp.Queue()
 
         self._scheduled_items = PriorityQueue()
         self._processes = []
-        self._cooked_queue = multiprocessing.Queue()
-        self._error_queue = multiprocessing.Queue()
+        self._cooked_queue = mp.Queue()
+        self._error_queue = mp.Queue()
         self._currently_ready = set()
 
         self._last_scheduled = {}
@@ -31,7 +38,7 @@ class Chef:
                 self._plan_ingredient_now(recipe)
 
     def _cook_ingredient(self, ingredient: ScheduledIngredient):
-        p = Process(target=ingredient.recipe.cook, args=(ingredient.inputs,
+        p = mp.Process(target=ingredient.recipe.cook, args=(ingredient.inputs,
                                                          ingredient.node,
                                                          self._cooked_queue,
                                                          self._error_queue))
@@ -78,12 +85,16 @@ class Chef:
                 results.append(node)
         return results
 
+    def _create_node(self, constraint: IngredientConstraint):
+        self._planning_graph.add_node(constraint)
+        self._planning_graph.nodes[constraint]['state'] = NodeState.PLANNED
+        self._planning_graph.nodes[constraint]['inputs'] = {}
+        self._planning_graph.nodes[constraint]['pos'] = (random(), random())
+
     def _plan_ingredient_now(self, recipe):
         now = datetime.now()
         node_value = IngredientConstraint(recipe.ingredient, recipe.current_valid_interval)
-        self._planning_graph.add_node(node_value)
-        self._planning_graph.nodes[node_value]['state'] = NodeState.PLANNED
-        self._planning_graph.nodes[node_value]['inputs'] = {}
+        self._create_node(node_value)
 
         if recipe.ingredient in self._nodes_by_ingredient:
             self._nodes_by_ingredient[recipe.ingredient].append(node_value)
@@ -96,7 +107,7 @@ class Chef:
                 self._planning_graph.add_edge(node_value, satisfying_nodes[0])
             else:
                 new_satisfying_node = IngredientConstraint(input_ingredient, recipe.current_valid_interval)
-                self._planning_graph.add_node(new_satisfying_node)
+                self._create_node(new_satisfying_node)
                 self._planning_graph.add_edge(new_satisfying_node, node_value)
 
     def _plan_ingredients(self):
@@ -115,6 +126,9 @@ class Chef:
             item.escalate_priority()
             new_schedule.put(item)
         self._scheduled_items = new_schedule
+
+    def _monitor(self):
+        self._monitor_pipe.put(self._planning_graph)
 
     def close(self):
         for process in self._processes:
@@ -135,6 +149,7 @@ class Chef:
         signal.signal(signal.SIGINT, handler)
         start = time.time()
         while running and time.time() - start < self._menu.duration:
+            loop_start_time = time.time()
             self._get_all_cooked()
             self._schedule_ready_to_cook()
             active_cooks = self._clean_processes()
@@ -148,7 +163,9 @@ class Chef:
             self._plan_ingredients()
             self._escalate_scheduled_priorities()
             print("-" * 80)
-            time.sleep(self._menu.refresh_delay)
+            self._monitor()
+            loop_duration = time.time() - loop_start_time
+            time.sleep(max(self._menu.refresh_delay - loop_duration, 0))
         else:
             errors = self.close()
             print("Errors:", errors)

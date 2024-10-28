@@ -44,7 +44,8 @@ class Menu:
 
     @classmethod
     def load_toml(cls, path):
-        system_config = toml.load(path)
+        with open(path) as f:
+            system_config = toml.load(f)
         return cls(system_config)
 
     def get_recipe_for(self, ingredient: str) -> Recipe:

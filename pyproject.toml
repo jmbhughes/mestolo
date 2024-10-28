@@ -9,7 +9,11 @@ version = "0.0.2"
 dependencies = [
     "click",
     "toml",
-    "networkx"
+    "networkx",
+    "dash",
+    "plotly",
+    "numpy",
+    "pandas"
 ]
 requires-python = ">=3.10"
 authors = [
