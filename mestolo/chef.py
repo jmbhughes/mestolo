@@ -10,7 +10,8 @@ import pandas as pd
 from croniter import croniter
 from sqlalchemy import and_
 
-from .db import EdgesDB, NodeDB, ScheduledIngredientDB, create_session
+from .db import (EdgesDB, NodeDB, ScheduledIngredientDB, create_db,
+                 create_session)
 from .ingredients import IngredientConstraint, ScheduledIngredient
 from .menu import Menu
 
@@ -254,6 +255,8 @@ class Chef:
         return found_errors
 
     def cook(self):
+        create_db()
+
         running = True
 
         def handler(this_signal, frame):

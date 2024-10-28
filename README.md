@@ -24,3 +24,5 @@
 - [ ] add AI credit for logo
 - [ ] create documentation
 - [ ] make easier to define using decorators
+- [ ] more completely test
+- [ ] test with mocked database in specific scenarios
