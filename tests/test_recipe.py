@@ -20,7 +20,7 @@ def test_recipe_loads_from_config():
     assert r.path == "./tests/data/example_recipes1.py"
     assert r.priority == 10
     assert not r.trigger
-    assert r.delay == 1
+    assert r.schedule == "* * * * * *"
     assert r.escalation_times == [5, 10, 15]
     assert r.escalation_values == [20, 30, 50]
 
@@ -38,7 +38,7 @@ def test_scheduled_item_creates():
     assert scheduled_item.recipe.path == "./tests/data/example_recipes1.py"
     assert scheduled_item.recipe.priority == 10
     assert not scheduled_item.recipe.trigger
-    assert scheduled_item.recipe.delay == 1
+    assert scheduled_item.recipe.schedule == "* * * * * *"
     assert scheduled_item.recipe.escalation_times == [5, 10, 15]
     assert scheduled_item.recipe.escalation_values == [20, 30, 50]
 

@@ -11,9 +11,12 @@ dependencies = [
     "toml",
     "networkx",
     "dash",
+    "dash-bootstrap-components",
     "plotly",
     "numpy",
-    "pandas"
+    "pandas",
+    "croniter",
+    "sqlalchemy"
 ]
 requires-python = ">=3.10"
 authors = [

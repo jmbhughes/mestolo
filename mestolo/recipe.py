@@ -29,7 +29,7 @@ class Recipe:
     path: str
     priority: float
     trigger: Any
-    delay: float
+    schedule: str
     escalation_times: list[float]
     escalation_values: list[float]
     inputs: list[str]

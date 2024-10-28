@@ -1,12 +1,12 @@
-max_simultaneous = 10
-refresh_delay = 1
+max_simultaneous = 20
+refresh_delay = 1.0
 
 [recipe.recipe1]
 ingredient = 'b'
 path = "/Users/jhughes/Desktop/repos/mestolo/recipes.py"
 priority = 10
 trigger = false
-delay = 1
+schedule = "* * * * * *"
 escalation_times = [5, 10, 15]
 escalation_values = [20, 30, 50]
 inputs = []
@@ -18,7 +18,7 @@ ingredient = 'c'
 path = "/Users/jhughes/Desktop/repos/mestolo/recipes.py"
 priority = 0
 trigger = false
-delay = 3
+schedule = "* * * * * */5"
 escalation_times = [5, 20]
 escalation_values = [1, 2]
 inputs = []
@@ -30,7 +30,7 @@ ingredient = 'd'
 path = "/Users/jhughes/Desktop/repos/mestolo/recipes.py"
 priority = 100
 trigger = false
-delay = 2
+schedule = "* * * * * */10"
 escalation_times = [15]
 escalation_values = [500]
 inputs = ['b', 'c']

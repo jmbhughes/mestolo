@@ -7,7 +7,10 @@ from queue import Empty, PriorityQueue
 from random import random
 
 import networkx as nx
+import pandas as pd
+from croniter import croniter
 
+from .db import IngredientConstraintDB, ScheduledIngredientDB, create_session
 from .ingredients import IngredientConstraint, ScheduledIngredient
 from .menu import Menu
 
@@ -20,9 +23,14 @@ class NodeState(Enum):
     UNKNOWN = 5
 
 class Chef:
-    def __init__(self, menu: Menu, monitor_queue = None):
+    def __init__(self, menu: Menu, monitor_queue = None, schedule_queue = None):
+        now = datetime.now()
+
         self._menu = menu
-        self._monitor_pipe = monitor_queue if monitor_queue is not None else mp.Queue()
+        self._croniters = {recipe.name: croniter(recipe.schedule, now) for recipe in self._menu.recipes.values()}
+
+        self._monitor_queue = monitor_queue if monitor_queue is not None else mp.Queue()
+        self._schedule_queue = schedule_queue if schedule_queue is not None else mp.Queue()
 
         self._scheduled_items = PriorityQueue()
         self._processes = []
@@ -30,12 +38,24 @@ class Chef:
         self._error_queue = mp.Queue()
         self._currently_ready = set()
 
-        self._last_scheduled = {}
+        self._last_planned_time = {}
         self._planning_graph = nx.DiGraph()
         self._nodes_by_ingredient = {}
         for recipe_name, recipe in self._menu.recipes.items():
             if not recipe.inputs:
                 self._plan_ingredient_now(recipe)
+
+    def schedule_to_df(self):
+        names, times, priorities = [], [], []
+        new_schedule = PriorityQueue()
+        while not self._scheduled_items.empty():
+            item = self._scheduled_items.get()
+            names.append(item.recipe.name)
+            times.append(item.schedule_time)
+            priorities.append(item.current_priority)
+            new_schedule.put(item)
+        self._scheduled_items = new_schedule
+        return pd.DataFrame({'names': names, 'scheduled': times, 'priority': priorities})
 
     def _cook_ingredient(self, ingredient: ScheduledIngredient):
         p = mp.Process(target=ingredient.recipe.cook, args=(ingredient.inputs,
@@ -70,13 +90,20 @@ class Chef:
         nodes_with_no_inputs = [node for node, in_degree in self._planning_graph.in_degree() if in_degree == 0]
         ready_nodes = [node for node in nodes_with_no_inputs
                        if self._planning_graph.nodes[node].get('state', NodeState.UNKNOWN) == NodeState.PLANNED]
+        db_entries = []
         for ingredient_constraint in ready_nodes:
             recipe = self._menu.get_recipe_for(ingredient_constraint.name)
-            self._last_scheduled[recipe.name] = now
             inputs = self._planning_graph.nodes[ingredient_constraint].get('inputs', {})
             self._scheduled_items.put(ScheduledIngredient(now, recipe.priority, recipe, inputs,
                                                           ingredient_constraint))
             self._planning_graph.nodes[ingredient_constraint]['state'] = NodeState.SCHEDULED
+            db_entries.append(ScheduledIngredientDB(schedule_time=now,
+                                                    current_priority=recipe.priority,
+                                                    recipe=recipe.name,
+                                                    node=0))
+        session = create_session()
+        session.add_all(db_entries)
+        session.commit()
 
     def _get_satisfying_nodes(self, ingredient_name: str, dt: datetime):
         results = []
@@ -91,8 +118,17 @@ class Chef:
         self._planning_graph.nodes[constraint]['inputs'] = {}
         self._planning_graph.nodes[constraint]['pos'] = (random(), random())
 
+        session = create_session()
+        entry = IngredientConstraintDB(name=constraint.name,
+                                       start_time=constraint.valid_interval.start,
+                                       end_time=constraint.valid_interval.end)
+        session.add(entry)
+        session.commit()
+
     def _plan_ingredient_now(self, recipe):
         now = datetime.now()
+        self._last_planned_time[recipe.name] = now
+
         node_value = IngredientConstraint(recipe.ingredient, recipe.current_valid_interval)
         self._create_node(node_value)
 
@@ -114,9 +150,14 @@ class Chef:
         now = datetime.now()
 
         for recipe in self._menu.recipes.values():
-            last_time = self._last_scheduled.get(recipe.name, None)
-            has_delayed_enough = (now - last_time).total_seconds() > recipe.delay if last_time is not None else True
-            if has_delayed_enough:
+            num_starts = 0
+            while self._croniters[recipe.name].get_next(datetime) < now:
+                num_starts += 1
+            self._croniters[recipe.name].get_prev(datetime)
+
+            print(recipe.ingredient, num_starts)
+
+            for _ in range(num_starts):
                 self._plan_ingredient_now(recipe)
 
     def _escalate_scheduled_priorities(self):
@@ -128,7 +169,10 @@ class Chef:
         self._scheduled_items = new_schedule
 
     def _monitor(self):
-        self._monitor_pipe.put(self._planning_graph)
+        # self._monitor_queue.put(self._planning_graph)
+        schedule_df = self.schedule_to_df()
+        print(schedule_df)
+        # self._schedule_queue.put(schedule_df)
 
     def close(self):
         for process in self._processes:

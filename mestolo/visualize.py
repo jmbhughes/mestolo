@@ -34,7 +34,13 @@ def create_plotly_graph(nx_graph: networkx.Graph) -> go.Figure:
         x=edge_x, y=edge_y,
         line=dict(width=0.5, color='#888'),
         hoverinfo='none',
-        mode='lines')
+        mode='lines+markers',
+        marker=dict(
+            symbol="arrow",
+            size=15,
+            angleref="previous",
+        ),
+    )
 
     node_x = []
     node_y = []
