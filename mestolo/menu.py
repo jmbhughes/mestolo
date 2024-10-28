@@ -1,7 +1,7 @@
 import toml
 
 from .constants import (DEFAULT_DURATION, DEFAULT_REFRESH_DELAY,
-                        DEFAULT_SIMULTANEOUS_RATE, DEFAULT_START_METHOD)
+                        DEFAULT_SIMULTANEOUS_RATE)
 from .error import MenuError
 from .recipe import Recipe
 
@@ -33,10 +33,6 @@ class Menu:
     @property
     def duration(self):
         return self._contents.get('duration', DEFAULT_DURATION)
-
-    @property
-    def start_method(self):
-        return self._contents.get('spawn_method', DEFAULT_START_METHOD)
 
     @property
     def all_ingredients(self):

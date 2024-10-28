@@ -3,7 +3,7 @@ import signal
 import time
 from datetime import datetime
 from enum import Enum
-from multiprocessing import get_context
+from multiprocessing import Process
 from queue import Empty, PriorityQueue
 
 import networkx as nx
@@ -11,12 +11,10 @@ import networkx as nx
 from .ingredients import IngredientConstraint, ScheduledIngredient
 from .menu import Menu
 
-NodeState = Enum("NodeState", ['PLANNED', 'SCHEDULED', 'COOKING', 'COOKED', 'UNKNOWN'])
+NodeState = Enum("NodeStates", ['PLANNED', 'SCHEDULED', 'COOKING', 'COOKED', 'UNKNOWN'])
 
 class Chef:
     def __init__(self, menu: Menu):
-        self._mp_context = None
-
         self._menu = menu
 
         self._scheduled_items = PriorityQueue()
@@ -33,10 +31,10 @@ class Chef:
                 self._plan_ingredient_now(recipe)
 
     def _cook_ingredient(self, ingredient: ScheduledIngredient):
-        p = self._mp_context.Process(target=ingredient.recipe.cook, args=(ingredient.inputs,
-                                                                             ingredient.node,
-                                                                             self._cooked_queue,
-                                                                             self._error_queue))
+        p = Process(target=ingredient.recipe.cook, args=(ingredient.inputs,
+                                                         ingredient.node,
+                                                         self._cooked_queue,
+                                                         self._error_queue))
         self._processes.append(p)
         self._planning_graph.nodes[ingredient.node]['state'] = NodeState.COOKING
         p.start()
@@ -127,9 +125,6 @@ class Chef:
         return found_errors
 
     def cook(self):
-        if self._mp_context is None:
-            self._mp_context = get_context(self._menu.start_method)
-
         running = True
 
         def handler(this_signal, frame):
