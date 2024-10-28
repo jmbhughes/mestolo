@@ -38,3 +38,6 @@ def main(menu_path):
     chef_process.start()
     time.sleep(3)  # wait a few seconds so the chef is up and running
     monitor_process.start()
+
+    monitor_queue.close()
+    schedule_queue.close()
