@@ -1,4 +1,4 @@
-max_simultaneous = 20
+max_simultaneous = 3
 refresh_delay = 1.0
 
 [recipe.recipe1]
@@ -18,7 +18,7 @@ ingredient = 'c'
 path = "/Users/jhughes/Desktop/repos/mestolo/recipes.py"
 priority = 0
 trigger = false
-schedule = "* * * * * */5"
+schedule = "* * * * * */3"
 escalation_times = [5, 20]
 escalation_values = [1, 2]
 inputs = []

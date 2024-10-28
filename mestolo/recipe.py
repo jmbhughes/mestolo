@@ -36,11 +36,11 @@ class Recipe:
     valid_before_seconds: float | list[float] | None = None
     valid_after_seconds: float | list[float] | None = None
 
-    def cook(self, inputs, node, cooked_queue, error_queue):
+    def cook(self, inputs, node_id, cooked_queue, error_queue):
         try:
             f = load_function(self.path, self.name)
             output = f(*inputs)
-            cooked_queue.put((self.ingredient, output, node))
+            cooked_queue.put((self.ingredient, output, node_id))
         except KeyboardInterrupt:
             pass  # allow the chef to handle quitting
         except Exception as e:

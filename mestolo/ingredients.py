@@ -15,7 +15,7 @@ class ScheduledIngredient:
     current_priority: float
     recipe: Recipe
     inputs: dict[str, Any]
-    node: IngredientConstraint
+    node_id: int
 
     def escalate_priority(self):
         now = datetime.now()

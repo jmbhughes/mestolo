@@ -1,5 +1,6 @@
 import pandas as pd
-from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
+from sqlalchemy import (Boolean, Column, DateTime, Float, Integer, String,
+                        create_engine)
 from sqlalchemy.orm import Session, declarative_base
 
 from mestolo.datetime import DateTimeInterval
@@ -23,15 +24,26 @@ def create_session():
     engine = create_engine(DATABASE_NAME)
     return Session(engine)
 
-class IngredientConstraintDB(Base):
-    __tablename__ = "ingredient_constraint"
+class NodeDB(Base):
+    __tablename__ = "nodes"
     id = Column(Integer, primary_key=True)
     name = Column(String(64), nullable=False)
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)
+    state = Column(Integer, nullable=False)
+    posx = Column(Float, nullable=True)
+    posy = Column(Float, nullable=True)
 
-    def to_obj(self):
+    def to_ingredient_constraint(self):
         return IngredientConstraint(self.name, DateTimeInterval(self.start_time, self.end_time))
+
+class EdgesDB(Base):
+    __tablename__ = "edges"
+    id = Column(Integer, primary_key=True)
+    source = Column(Integer, nullable=False)
+    sink = Column(Integer, nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
 
 class ScheduledIngredientDB(Base):
     __tablename__ = "scheduled_ingredient"
@@ -40,3 +52,4 @@ class ScheduledIngredientDB(Base):
     current_priority = Column(Float, nullable=False)
     recipe = Column(String(64), nullable=False)
     node = Column(Integer, nullable=False)
+    active = Column(Boolean, nullable=False, default=True)

@@ -1,23 +1,41 @@
-import networkx
 import networkx as nx
 import plotly.express as px
 import plotly.graph_objects as go
 
 from .chef import NodeState
-
-G = nx.random_geometric_graph(200, 0.125)
-
-
+from .db import EdgesDB, NodeDB, create_session
 
 NODE_STATE_COLORS = {
-    NodeState.PLANNED: px.colors.qualitative.Plotly[1],
-    NodeState.SCHEDULED: px.colors.qualitative.Plotly[2],
-    NodeState.COOKING: px.colors.qualitative.Plotly[3],
-    NodeState.COOKED: px.colors.qualitative.Plotly[4],
-    NodeState.UNKNOWN: px.colors.qualitative.Plotly[5]
+    NodeState.PLANNED: px.colors.qualitative.Plotly[1],  # #EF553B
+    NodeState.SCHEDULED: px.colors.qualitative.Plotly[2],  # #00CC96
+    NodeState.COOKING: px.colors.qualitative.Plotly[3], # #AB63FA
+    NodeState.COOKED: px.colors.qualitative.Plotly[4],  # #FFA15A
+    NodeState.UNKNOWN: px.colors.qualitative.Plotly[5] # #19D3F3
 }
 
-def create_plotly_graph(nx_graph: networkx.Graph) -> go.Figure:
+def create_networkx_graph_from_db():
+    graph = nx.DiGraph()
+
+    session = create_session()
+    node_entries = session.query(NodeDB).where(NodeDB.state!=NodeState.COOKED).all()
+
+    for node in node_entries:
+        constraint = node.to_ingredient_constraint()
+        graph.add_node(constraint)
+        graph.nodes[constraint]['state'] = node.state
+        graph.nodes[constraint]['pos'] = (node.posx, node.posy)
+
+    edge_entries = session.query(EdgesDB).where(EdgesDB.active).all()
+    for edge in edge_entries:
+        source = session.query(NodeDB).where(NodeDB.id == edge.source).one().to_ingredient_constraint()
+        sink = session.query(NodeDB).where(NodeDB.id == edge.sink).one().to_ingredient_constraint()
+        if source in graph.nodes and sink in graph.nodes:
+            graph.add_edge(source, sink)
+
+    return graph
+
+
+def create_plotly_graph(nx_graph: nx.Graph) -> go.Figure:
     edge_x = []
     edge_y = []
     for edge in nx_graph.edges():

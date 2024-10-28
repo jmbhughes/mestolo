@@ -1,12 +1,10 @@
-from queue import Empty
 
 import dash_bootstrap_components as dbc
-import networkx as nx
 import pandas as pd
-from dash import Dash, Input, Output, State, callback, dash_table, dcc, html
+from dash import Dash, Input, Output, callback, dash_table, dcc, html
 
-from .db import run_query
-from .visualize import create_plotly_graph
+from .db import create_session
+from .visualize import create_networkx_graph_from_db, create_plotly_graph
 
 recipe_data = {'recipe1': 100, 'recipe2': 30, 'recipe3': 50}
 column_names = ['id', 'schedule_time', 'current_priority', 'recipe', 'node']
@@ -16,7 +14,6 @@ def create_app(menu, monitor_queue, schedule_queue):
     recipe_names = sorted(list(menu.recipes.keys()))
     app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
     app.layout = html.Div([
-        dcc.Store(id='old-node-graph'),
         dcc.Graph(id='live-node-graph'),
         dash_table.DataTable(id='schedule',
                              data=pd.DataFrame({name: [] for name in column_names}).to_dict('records'),
@@ -36,7 +33,9 @@ def create_app(menu, monitor_queue, schedule_queue):
         Input('interval-component', 'n_intervals'),
     )
     def update_schedule(n):
-        df = run_query("SELECT * FROM scheduled_ingredient;")
+        # query = session.query(ScheduledIngredientDB).filter(ScheduledIngredientDB.active).all()
+        query = "SELECT * FROM scheduled_ingredient WHERE active = true"
+        df = pd.read_sql_query(query, create_session().connection())
         return df.to_dict('records')
     #
     # @callback(
@@ -73,21 +72,9 @@ def create_app(menu, monitor_queue, schedule_queue):
 
     @callback(Output('live-node-graph', 'figure'),
                   Input('interval-component', 'n_intervals'),
-                  State('old-node-graph', 'figure')
                   )
-    def update_node_graph(n, old_node_graph):
-        if old_node_graph is None:
-            old_node_graph = create_plotly_graph(nx.DiGraph())
-
-        try:
-            nx_graph = monitor_queue.get(block=False)
-        except Empty:
-            nx_graph = None
-
-        if nx_graph is None:
-            new_fig = old_node_graph
-        else:
-            new_fig = create_plotly_graph(nx_graph)
-        return new_fig
+    def update_node_graph(n):
+        nx_graph = create_networkx_graph_from_db()
+        return create_plotly_graph(nx_graph)
 
     return app
