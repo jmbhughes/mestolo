@@ -1,12 +1,13 @@
-max_simultaneous = 10
-refresh_delay = 1
+max_simultaneous = 10_000
+refresh_delay = 0.01
+start_method = 'spawn'
 
 [recipe.recipe1]
 ingredient = 'b'
 path = "/Users/jhughes/Desktop/repos/mestolo/recipes.py"
 priority = 10
 trigger = false
-delay = 1
+delay = 0.01
 escalation_times = [5, 10, 15]
 escalation_values = [20, 30, 50]
 inputs = []
