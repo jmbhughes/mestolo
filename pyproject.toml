@@ -8,9 +8,17 @@ name = "mestolo"
 version = "0.0.2"
 dependencies = [
     "click",
-    "toml"
+    "toml",
+    "networkx",
+    "dash",
+    "dash-bootstrap-components",
+    "plotly",
+    "numpy",
+    "pandas",
+    "croniter",
+    "sqlalchemy"
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     {name = "J. Marcus Hughes", email = "hughes.jmb@gmail.com"},
 ]
