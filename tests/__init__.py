@@ -1,3 +1,4 @@
 import os
+import pathlib
 
-TEST_DIR = os.path.dirname(__file__)
+TEST_DIR = pathlib.Path(__file__).parent
