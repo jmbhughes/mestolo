@@ -31,11 +31,13 @@ class NodeDB(Base):
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)
     state = Column(Integer, nullable=False)
+    count = Column(Integer, nullable=True)
     posx = Column(Float, nullable=True)
     posy = Column(Float, nullable=True)
 
     def to_ingredient_constraint(self):
-        return IngredientConstraint(self.name, DateTimeInterval(self.start_time, self.end_time))
+        return IngredientConstraint(self.name, DateTimeInterval(self.start_time, self.end_time), self.count)
+
 
 class EdgesDB(Base):
     __tablename__ = "edges"

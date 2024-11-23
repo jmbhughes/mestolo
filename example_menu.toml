@@ -1,5 +1,5 @@
-max_simultaneous = 3
-refresh_delay = 1.0
+max_simultaneous = 30
+refresh_delay = 3
 
 [recipe.recipe1]
 ingredient = 'b'
@@ -21,7 +21,7 @@ trigger = false
 schedule = "* * * * * */3"
 escalation_times = [5, 20]
 escalation_values = [1, 2]
-inputs = []
+inputs = ['b']
 valid_before_seconds = 10
 
 
@@ -34,4 +34,15 @@ schedule = "* * * * * */10"
 escalation_times = [15]
 escalation_values = [500]
 inputs = ['b', 'c']
+valid_before_seconds = 10
+
+[recipe.recipe4]
+ingredient = 'e'
+path = "/Users/jhughes/Desktop/repos/mestolo/recipes.py"
+priority = 100
+trigger = false
+schedule = "* * * * * */3"
+escalation_times = [15]
+escalation_values = [500]
+inputs = ['c', 'd']
 valid_before_seconds = 10

@@ -10,8 +10,8 @@ recipe_data = {'recipe1': 100, 'recipe2': 30, 'recipe3': 50}
 column_names = ['id', 'schedule_time', 'current_priority', 'recipe', 'node']
 schedule_columns =[{'name': v, 'id': v} for v in column_names]
 
-def create_app(menu, monitor_queue, schedule_queue):
-    recipe_names = sorted(list(menu.recipes.keys()))
+def create_app():
+    recipe_names = ["recipe1"] # TODO: pull from db sorted(list(menu.recipes.keys()))
     app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
     app.layout = html.Div([
         dcc.Graph(id='live-node-graph'),
@@ -23,7 +23,7 @@ def create_app(menu, monitor_queue, schedule_queue):
         dbc.Row(id='recipe-stats', className="mb-4"),
         dcc.Interval(
             id='interval-component',
-            interval=menu.refresh_delay * 1000,  # in milliseconds
+            interval=1000,  # in milliseconds
             n_intervals=0
         ),
     ])

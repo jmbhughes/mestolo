@@ -1,4 +1,5 @@
 import multiprocessing as mp
+import pathlib
 import signal
 import time
 from datetime import datetime
@@ -10,8 +11,7 @@ import pandas as pd
 from croniter import croniter
 from sqlalchemy import and_
 
-from .db import (EdgesDB, NodeDB, ScheduledIngredientDB, create_db,
-                 create_session)
+from .db import EdgesDB, NodeDB, ScheduledIngredientDB, create_session
 from .ingredients import IngredientConstraint, ScheduledIngredient
 from .menu import Menu
 
@@ -24,14 +24,16 @@ class NodeState(IntEnum):
     UNKNOWN = 5
 
 class Chef:
-    def __init__(self, menu: Menu, monitor_queue = None, schedule_queue = None):
+    def __init__(self, menu_path: pathlib.Path, session=None):
         now = datetime.now()
 
-        self._menu = menu
+        self._menu = Menu.load_toml(menu_path)
+        self._session = session or create_session()
+
         self._croniters = {recipe.name: croniter(recipe.schedule, now) for recipe in self._menu.recipes.values()}
 
-        self._monitor_queue = monitor_queue if monitor_queue is not None else mp.Queue()
-        self._schedule_queue = schedule_queue if schedule_queue is not None else mp.Queue()
+        # self._monitor_queue = monitor_queue if monitor_queue is not None else mp.Queue()
+        # self._schedule_queue = schedule_queue if schedule_queue is not None else mp.Queue()
 
         self._scheduled_items = PriorityQueue()
         self._processes = []
@@ -60,10 +62,9 @@ class Chef:
 
     def _cook_ingredient(self, ingredient: ScheduledIngredient):
         # TODO: remove from scheduledingredientdb
-        session = create_session()
-        entry = session.query(ScheduledIngredientDB).where(ScheduledIngredientDB.node == ingredient.node_id).one()
+        entry = self._session.query(ScheduledIngredientDB).where(ScheduledIngredientDB.node == ingredient.node_id).one()
         entry.active = False
-        session.commit()
+        self._session.commit()
 
         p = mp.Process(target=ingredient.recipe.cook, args=(ingredient.inputs,
                                                          ingredient.node_id,
@@ -96,24 +97,21 @@ class Chef:
             # self._nodes_by_ingredient[ingredient].remove(node)
 
     def _get_children_nodes(self, node_id):
-        session = create_session()
-        children_ids = session.query(EdgesDB.sink).filter(EdgesDB.active).where(EdgesDB.source == node_id).all()
+        children_ids = self._session.query(EdgesDB.sink).filter(EdgesDB.active).where(EdgesDB.source == node_id).all()
         children_ids = [r[0] for r in children_ids]
-        return session.query(NodeDB).where(NodeDB.id.in_(children_ids)).all()
+        return self._session.query(NodeDB).where(NodeDB.id.in_(children_ids)).all()
 
     def _get_nodes_ready_to_cook(self):
-        session = create_session()
-        sink_node_ids = session.query(EdgesDB.sink).filter(EdgesDB.active).distinct().all()
+        sink_node_ids = self._session.query(EdgesDB.sink).filter(EdgesDB.active).distinct().all()
         sink_node_ids = [r[0] for r in sink_node_ids]
         print("sink_node_ids", sink_node_ids)
-        return (session.query(NodeDB)
-                .filter(NodeDB.state == NodeState.PLANNED)
+        return (self._session.query(NodeDB)
+                .filter(NodeDB.state == int(NodeState.PLANNED))
                 .where(NodeDB.id.notin_(sink_node_ids))
                 .all())
 
     def _get_number_in_state(self, state: NodeState) -> int:
-        session = create_session()
-        return len(session.query(NodeDB).filter(NodeDB.state == state).all())
+        return len(self._session.query(NodeDB).filter(NodeDB.state == int(state)).all())
 
     def _schedule_ready_to_cook(self):
         now = datetime.now()
@@ -136,9 +134,8 @@ class Chef:
                                                     current_priority=recipe.priority,
                                                     recipe=recipe.name,
                                                     node=node.id))
-        session = create_session()
-        session.add_all(db_entries)
-        session.commit()
+        self._session.add_all(db_entries)
+        self._session.commit()
 
     def _get_satisfying_nodes(self, ingredient_name: str, dt: datetime):
         results = []
@@ -148,9 +145,8 @@ class Chef:
                 results.append(node)
         return results
 
-    def _get_nodes_by_ingredient(self, ingredient_name: str, allowed_states=(NodeState.PLANNED,)):
-        session = create_session()
-        return session.query(NodeDB).where(and_(NodeDB.name==ingredient_name,
+    def _get_nodes_by_ingredient(self, ingredient_name: str, allowed_states=(int(NodeState.PLANNED),)):
+        return self._session.query(NodeDB).where(and_(NodeDB.name==ingredient_name,
                                          NodeDB.state.in_(allowed_states))).all()
 
 
@@ -161,47 +157,43 @@ class Chef:
         posx, posy = (random(), random())
         # self._planning_graph.nodes[constraint]['pos'] = (posx, posy)
 
-        session = create_session()
         entry = NodeDB(name=constraint.name,
                        start_time=constraint.valid_interval.start,
                        end_time=constraint.valid_interval.end,
-                       state = NodeState.PLANNED,
+                       state = int(NodeState.PLANNED),
                        posx = posx,
                        posy = posy)
-        session.add(entry)
-        session.commit()
+        self._session.add(entry)
+        self._session.commit()
         return entry.id
         # self._planning_graph.nodes[constraint]['id'] = entry.id
 
     def _update_node_state(self,  node_id: int, new_state: NodeState):
         # self._planning_graph.nodes[constraint]['state'] = new_state
-        session = create_session()
-        entry = session.query(NodeDB).where(NodeDB.id == node_id).one()
-        entry.state = new_state
-        session.commit()
+        entry = self._session.query(NodeDB).where(NodeDB.id == node_id).one()
+        entry.state = int(new_state)
+        self._session.commit()
 
     def _create_edge(self, source_id, sink_id):
         # self._planning_graph.add_edge(source, sink)
 
-        session = create_session()
         entry = EdgesDB(source = source_id,
                         sink = sink_id)
-        session.add(entry)
-        session.commit()
+        self._session.add(entry)
+        self._session.commit()
 
     def _deactivate_edge(self, source_id, sink_id):
-        session = create_session()
-        entry = session.query(EdgesDB).where(
+        entry = self._session.query(EdgesDB).where(
             and_(EdgesDB.source == source_id,
                  EdgesDB.sink == sink_id)).one()
         entry.active = False
-        session.commit()
+        self._session.commit()
 
     def _plan_ingredient_now(self, recipe):
         now = datetime.now()
         self._last_planned_time[recipe.name] = now
 
-        node_value = IngredientConstraint(recipe.ingredient, recipe.current_valid_interval)
+        node_value = IngredientConstraint(recipe.ingredient, recipe.current_valid_interval, 1)
         node_id = self._create_node(node_value)
 
         # if recipe.ingredient in self._nodes_by_ingredient:
@@ -255,8 +247,6 @@ class Chef:
         return found_errors
 
     def cook(self):
-        create_db()
-
         running = True
 
         def handler(this_signal, frame):

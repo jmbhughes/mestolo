@@ -27,5 +27,6 @@
 - [ ] add more realistic constraints for PUNCH where an input type is repeated at many times
 - [ ] allow using old, consumed files to satisfy new products
 - [ ] makes processes clean themselves up instead of periodically checking
-- [ ] checks for dependency cycles on start
+- [ ] checks for dependency cycles
 - [ ] add a sensor mode for triggering on new files (particularly for PUNCH raw --> level 0)
+- [ ] priorities sum and include dependencies?

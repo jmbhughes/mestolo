@@ -6,7 +6,7 @@ from typing import Any
 from mestolo.recipe import Recipe
 
 IngredientInstance = namedtuple("IngredientInstance", ["name", "time", "value"])
-IngredientConstraint = namedtuple("IngredientConstraint", ["name", "valid_interval"])
+IngredientConstraint = namedtuple("IngredientConstraint", ["name", "valid_interval", "count"])
 
 
 @dataclass
