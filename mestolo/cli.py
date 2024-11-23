@@ -1,9 +1,8 @@
+import argparse
 import math
 import multiprocessing as mp
 import sys
 import time
-
-import click
 
 from .chef import Chef
 from .menu import Menu
@@ -22,12 +21,12 @@ def run_monitor(menu, monitor_queue, schedule_queue):
         time.sleep(menu.duration)
         sys.exit(0)
 
-@click.command()
-@click.argument('menu_path', type=click.Path(exists=True))
-def main(menu_path):
-    print("DB CREATED")
+def main():
+    parser = argparse.ArgumentParser(prog="mestolo")
+    parser.add_argument("menu_path", type=str, help="Path to menu for running")
+    args = parser.parse_args()
 
-    menu = Menu.load_toml(menu_path)
+    menu = Menu.load_toml(args.menu_path)
 
     monitor_queue = mp.Queue()
     schedule_queue = mp.Queue()
@@ -36,8 +35,11 @@ def main(menu_path):
     monitor_process = mp.Process(target=run_monitor, args=(menu, monitor_queue, schedule_queue))
 
     chef_process.start()
-    time.sleep(3)  # wait a few seconds so the chef is up and running
+    time.sleep(1)  # wait a second so the chef is up and running
     monitor_process.start()
+
+    chef_process.join()
+    monitor_process.join()
 
     monitor_queue.close()
     schedule_queue.close()

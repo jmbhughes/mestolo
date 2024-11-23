@@ -7,7 +7,6 @@ requires = ["setuptools",
 name = "mestolo"
 version = "0.0.2"
 dependencies = [
-    "click",
     "toml",
     "networkx",
     "dash",
