@@ -1,8 +1,10 @@
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from importlib.util import module_from_spec, spec_from_file_location
 from typing import Any
+
+from .datetime import DateTimeInterval
 
 
 def load_module(path):
@@ -23,51 +25,43 @@ def load_function(path, function_name):
 @dataclass
 class Recipe:
     name: str
+    ingredient: str
     path: str
     priority: float
     trigger: Any
-    delay: float
-    escalation_times: [float]
-    escalation_values: [float]
+    schedule: str
+    escalation_times: list[float]
+    escalation_values: list[float]
+    inputs: list[str]
+    valid_before_seconds: float | list[float] | None = None
+    valid_after_seconds: float | list[float] | None = None
 
-    def cook(self):
-        print(f"running {self.name}")
-        f = load_function(self.path, self.name)
-        f()
-        print(f"finished {self.name}")
+    def cook(self, inputs, node_id, cooked_queue, error_queue):
+        try:
+            f = load_function(self.path, self.name)
+            output = f(*inputs)
+            cooked_queue.put((self.ingredient, output, node_id))
+        except KeyboardInterrupt:
+            pass  # allow the chef to handle quitting
+        except Exception as e:
+            error_queue.put(e)
 
     @classmethod
     def load_from_config(cls, name, recipe_config):
         return cls(name, **recipe_config)
 
+    def get_valid_interval(self, dt):
+        if self.valid_before_seconds is None:
+            start = None
+        else:
+            start = dt - timedelta(seconds=self.valid_before_seconds)
 
-@dataclass
-class ScheduledItem:
-    schedule_time: datetime
-    current_priority: float
-    recipe: Recipe
+        if self.valid_after_seconds is None:
+            end = None
+        else:
+            end = dt + timedelta(seconds=self.valid_after_seconds)
+        return DateTimeInterval(start, end)
 
-    def escalate_priority(self):
-        now = datetime.now()
-        waiting_seconds = (now - self.schedule_time).total_seconds()
-        for escalation_time, escalation_value in zip(self.recipe.escalation_times, self.recipe.escalation_values):
-            if waiting_seconds > escalation_time:
-                self.current_priority = escalation_value
-
-    def __le__(self, other):
-        return self.current_priority <= other.current_priority
-
-    def __ge__(self, other):
-        return self.current_priority >= other.current_priority
-
-    def __eq__(self, other):
-        return self.current_priority == other.current_priority
-
-    def __ne__(self, other):
-        return self.current_priority != other.current_priority
-
-    def __gt__(self, other):
-        return self.current_priority > other.current_priority
-
-    def __lt__(self, other):
-        return self.current_priority < other.current_priority
+    @property
+    def current_valid_interval(self):
+        return self.get_valid_interval(datetime.now())

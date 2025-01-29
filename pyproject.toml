@@ -1,16 +1,23 @@
 [build-system]
-
-requires = ["setuptools",
-            "wheel"]
+requires = ["setuptools>=64", "setuptools-scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "mestolo"
-version = "0.0.2"
+dynamic = ["version"]
 dependencies = [
-    "click",
-    "toml"
+    "toml",
+    "gunicorn",
+    "networkx",
+    "dash",
+    "dash-bootstrap-components",
+    "plotly",
+    "numpy",
+    "pandas",
+    "croniter",
+    "sqlalchemy"
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     {name = "J. Marcus Hughes", email = "hughes.jmb@gmail.com"},
 ]
@@ -27,7 +34,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-doctestplus", "pytest-cov", "ruff", "coverage", "freezegun"]
+test = ["pytest", "pytest-doctestplus", "pytest-cov", "ruff", "coverage", "freezegun", "pytest-mock-resources[mysql]"]
 docs = ["sphinx", "sphinx-autoapi", "sphinx-automodapi", "pydata-sphinx-theme", "sphinx-favicon", "ipython"]
 
 [project.scripts]
@@ -39,6 +46,9 @@ mestolo = "mestolo.cli:main"
 Repository = "https://github.com/jmbhughes/mestolo.git"
 "Bug Tracker" = "https://github.com/jmbhughes/mestolo/issues"
 #Changelog = "https://github.com/punch-mission/thuban/blob/main/CHANGELOG.md"
+
+[tool.setuptools_scm]
+
 
 [tool.setuptools]
 packages = ["mestolo"]

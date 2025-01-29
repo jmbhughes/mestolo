@@ -1,8 +1,10 @@
-max_simultaneous = 11
-refresh_delay = 3
-duration = 4
+# there's a bug in one of the recipes so that process should gracefully stop
 
-[recipe.recipe1]
+max_simultaneous = 3
+refresh_delay = 1
+duration = 2
+
+[recipe.recipe_buggy]
 ingredient = 'b'
 path = "./tests/data/example_recipes1.py"
 priority = 10

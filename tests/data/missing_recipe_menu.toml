@@ -1,3 +1,5 @@
+# there is no recipe to produce 'a' in this menu
+
 max_simultaneous = 11
 refresh_delay = 3
 duration = 4
@@ -10,7 +12,7 @@ trigger = false
 schedule = "* * * * * *"
 escalation_times = [5, 10, 15]
 escalation_values = [20, 30, 50]
-inputs = []
+inputs = ['a']
 
 [recipe.recipe2]
 ingredient = 'c'
