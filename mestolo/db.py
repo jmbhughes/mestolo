@@ -4,7 +4,7 @@ from sqlalchemy import (Boolean, Column, DateTime, Float, Integer, String,
 from sqlalchemy.orm import Session, declarative_base
 
 from mestolo.datetime import DateTimeInterval
-from mestolo.ingredients import IngredientConstraint
+from mestolo.ingredient import IngredientConstraint
 
 Base = declarative_base()
 DATABASE_NAME = "sqlite:///database.db"

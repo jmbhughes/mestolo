@@ -6,8 +6,6 @@ from typing import Any
 from mestolo.recipe import Recipe
 
 IngredientInstance = namedtuple("IngredientInstance", ["name", "time", "value"])
-IngredientConstraint = namedtuple("IngredientConstraint", ["name", "valid_interval", "count"])
-
 
 @dataclass
 class ScheduledIngredient:
@@ -16,13 +14,6 @@ class ScheduledIngredient:
     recipe: Recipe
     inputs: dict[str, Any]
     node_id: int
-
-    def escalate_priority(self):
-        now = datetime.now()
-        waiting_seconds = (now - self.schedule_time).total_seconds()
-        for escalation_time, escalation_value in zip(self.recipe.escalation_times, self.recipe.escalation_values):
-            if waiting_seconds > escalation_time:
-                self.current_priority = escalation_value
 
     def __le__(self, other):
         return self.__eq__(other) or self.__le__(other)
