@@ -4,8 +4,11 @@ import multiprocessing as mp
 import signal
 import math
 import time
+from queue import Empty, PriorityQueue
+from datetime import datetime
 
 from sqlalchemy.orm import Session
+from croniter import croniter
 
 from mestolo.recipe import Menu
 
@@ -15,6 +18,7 @@ class Chef:
                  session: Optional[Session] = None,
                  duration: float = math.inf,
                  refresh_rate: float = 1.0):
+        now = datetime.now()
         self.session = session or Session()
 
         self._num_cooks = num_cooks
@@ -23,6 +27,10 @@ class Chef:
         self._refresh_rate = refresh_rate
 
         self._processes = []
+        self._croniters = {recipe.name: croniter(recipe.schedule, now)
+                           for recipe in self._menu.recipes.values() if recipe.schedule is not None}
+
+        self._schedule = PriorityQueue()
 
     def _cook_recipe(self, recipe_id: uuid.UUID):
         recipe = self._menu[recipe_id]
