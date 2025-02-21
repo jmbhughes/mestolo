@@ -16,7 +16,7 @@ class Chef:
     def __init__(self, menu: Menu,
                  num_cooks: int,
                  session: Optional[Session] = None,
-                 duration: float = math.inf,
+                 duration: float =   math.inf,
                  refresh_rate: float = 1.0):
         now = datetime.now()
         self.session = session or Session()
@@ -43,20 +43,29 @@ class Chef:
 
     def _clean_processes(self):
         self._processes = [p for p in self._processes if p.is_alive()]
+        return len(self._processes)
 
     def cook(self):
         running = True
 
-        def handler(this_signal, frame):
-            print("STOPPING")
+        def interrupt_handler(this_signal, frame):
             nonlocal running
             running = False
 
-        signal.signal(signal.SIGINT, handler)
+        signal.signal(signal.SIGINT, interrupt_handler)
 
         start = time.time()
         while running and time.time() - start < self._duration:
             loop_start_time = time.time()
+
+            active_cook_count = self._clean_processes()
+            free_cook_count = self._num_cooks - active_cook_count
+
+            while free_cook_count > 0 and not self._schedule.empty():
+                self._cook_scheduled_item(self._schedule.get())
+                free_cook_count -= 1
+
+            # run the monitoring update
 
             # TODO: actually do the cooking!
 
