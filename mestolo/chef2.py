@@ -1,16 +1,19 @@
-from typing import Optional
+from typing import Optional, List
 import uuid
 import multiprocessing as mp
 import signal
 import math
 import time
 from queue import Empty, PriorityQueue
-from datetime import datetime
+from datetime import datetime, timedelta
 
+import sqlalchemy as sa
 from sqlalchemy.orm import Session
 from croniter import croniter
 
-from mestolo.recipe import Menu
+from mestolo.db import create_session, RecipeDB, RecipeRunDB, RecipeRunState
+from mestolo.recipe import Menu, Recipe
+
 
 class Chef:
     def __init__(self, menu: Menu,
@@ -19,20 +22,18 @@ class Chef:
                  duration: float =   math.inf,
                  refresh_rate: float = 1.0):
         now = datetime.now()
-        self.session = session or Session()
+        self._session = session or create_session()
 
-        self._num_cooks = num_cooks
-        self._menu = menu
-        self._duration = duration
-        self._refresh_rate = refresh_rate
+        self._num_cooks: int = num_cooks
+        self._menu: Menu = menu
+        self._duration: float = duration
+        self._refresh_rate: float = refresh_rate
 
-        self._processes = []
-        self._croniters = {recipe.name: croniter(recipe.schedule, now)
-                           for recipe in self._menu.recipes.values() if recipe.schedule is not None}
+        self._processes: List[mp.Process] = []
 
-        self._schedule = PriorityQueue()
+        self._schedule: PriorityQueue[Recipe] = PriorityQueue()
 
-    def _cook_recipe(self, recipe_id: uuid.UUID):
+    def _cook_recipe(self, recipe_name: uuid.UUID):
         recipe = self._menu[recipe_id]
 
         # TODO: update database
@@ -62,7 +63,7 @@ class Chef:
             free_cook_count = self._num_cooks - active_cook_count
 
             while free_cook_count > 0 and not self._schedule.empty():
-                self._cook_scheduled_item(self._schedule.get())
+                self._cook_recipe(self._schedule.get())
                 free_cook_count -= 1
 
             # run the monitoring update
@@ -76,4 +77,14 @@ class Chef:
         for p in self._processes:
             p.join()
 
-
+    def check_for_zombies(self, recipe_name: str, sigma: float = 3.0):
+        now = datetime.now()
+        average_time = float(self._session.query(sa.func.avg(RecipeRunDB.end_time - RecipeRunDB.start_time))
+        .filter(RecipeRunDB.status == RecipeRunState.cooked)
+         .filter(RecipeRunDB.recipe_name == recipe_name).scalar())
+        std_time = float(self._session.query(sa.func.stddev_samp(RecipeRunDB.end_time - RecipeRunDB.start_time))
+                    .filter(RecipeRunDB.status == RecipeRunState.cooked)
+                        .filter(RecipeRunDB.recipe_name == recipe_name).scalar())
+        maximum_time = timedelta(minutes=(average_time + 3 * std_time)/100)
+        print("max time", maximum_time)
+        return self._session.query(RecipeRunDB).filter(RecipeRunDB.status == RecipeRunState.cooking).filter(RecipeRunDB.recipe_name == recipe_name).filter(now - maximum_time > RecipeRunDB.start_time).all()

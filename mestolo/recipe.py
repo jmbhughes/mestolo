@@ -10,12 +10,13 @@ import math
 
 from sqlalchemy.orm import Session
 
-from mestolo.db import RecipeRun, RecipeRunState
+from mestolo.db import RecipeRunState, RecipeRunDB, create_session
 from mestolo.error import MenuError
 from mestolo.selector import SelectorABC
 
 
-def recipe(inputs: Dict[str, SelectorABC],
+def recipe(inputs: Dict[str, str],
+           selectors: Dict[str, SelectorABC],
            outputs: List[str],
            cadence: timedelta,
            lookback_length: timedelta = timedelta(days=1),
@@ -33,10 +34,13 @@ def recipe(inputs: Dict[str, SelectorABC],
         r = Recipe(func.__name__,
                    func,
                    inputs,
+                   selectors,
                    outputs,
                    cadence,
                    lookback_length,
                    priority)
+
+        r.register(create_session())
 
         # try to add it to the menus
         if menus is not None:
@@ -50,7 +54,8 @@ def recipe(inputs: Dict[str, SelectorABC],
 class Recipe:
     name: str
     func: Callable
-    inputs: Dict[str, SelectorABC]
+    inputs: Dict[str, str]
+    selectors: Dict[str, SelectorABC]
     outputs: List[str]
     cadence: timedelta
     lookback_length: timedelta = timedelta(days=1)
@@ -63,12 +68,15 @@ class Recipe:
         pass
 
     def last_cooked_time(self, session: Session) -> Optional[datetime]:
-        # TODO: actually filter by this recipe name... it shouldn't be static
-        result = session.query(RecipeRun).filter(RecipeRun.status == 1).order_by(RecipeRun.end_time).first()
+        result = (session.query(RecipeRunDB)
+                  .filter(RecipeRunDB.recipe_name == self.name)
+                  .filter(RecipeRunDB.status == RecipeRunState.cooked)
+                  .order_by(RecipeRunDB.end_time).first())
         return None if result is None else result.end_time
 
 
     def cook(self, cooked_queue, error_queue, session: Session, dt=datetime.now(timezone.utc)):
+        """Call the recipe with database hooks."""
         # TODO : use selectors!
         # TODO: this should only be called in a chef.cook environment
         # call_times = self.calculate_lookback_schedule(dt)
@@ -84,6 +92,7 @@ class Recipe:
         pass
 
     def __call__(self, *args, **kwargs):
+        """Call the recipe as a normal function without database hooks."""
         return self.func(*args, **kwargs)
 
     def calculate_lookback_schedule(self, dt: datetime) -> List[datetime]:
@@ -91,6 +100,9 @@ class Recipe:
         num_expected = int(math.ceil((dt - start_time) / self.cadence))
         return [start_time + i * self.cadence for i in range(num_expected)]
 
+    def register(self, session: Session):
+        """Put the recipe in the database."""
+        pass
 
 class Menu:
     def __init__(self, recipes: List[Recipe]):

@@ -1,74 +1,53 @@
 from enum import Enum
+import os
 
 import pandas as pd
 
 from sqlalchemy import (Boolean, Column, DateTime, Float, Integer, String,
-                        create_engine, TEXT, ForeignKey)
+                        create_engine, TEXT, ForeignKey, Enum as SQLEnum, text, inspect)
 from sqlalchemy.orm import Session, declarative_base, Mapped, mapped_column
 
 Base = declarative_base()
-DATABASE_NAME = "sqlite:///database.db"
+
+def get_database_name():
+    return os.environ.get("MESTOLO_DATABASE", "sqlite:///mestolo.db")
 
 def run_query(query):
-    engine = create_engine(DATABASE_NAME)
+    engine = create_engine(get_database_name())
     with engine.connect() as conn, conn.begin():
         return pd.read_sql_query(query, conn)
 
-def create_db():
-    engine = create_engine(DATABASE_NAME)
-    # with engine.connect() as connection:
-    #     connection.execute(text('CREATE DATABASE IF NOT EXISTS mestolo;'))
-    Base.metadata.create_all(engine)
-
 def create_session():
-    engine = create_engine(DATABASE_NAME)
+    engine = create_engine(get_database_name())
+    if not inspect(engine).has_table("recipes"):  # it's incomplete and needs filling
+        Base.metadata.create_all(engine)
     return Session(engine)
 
-class Recipe(Base):
+class RecipeDB(Base):
     __tablename__ = "recipes"
-    id = Column(Integer, primary_key=True)
-    # TODO: populate
+    name = Column(String(128), nullable=False, primary_key=True)
+    inputs = Column(TEXT, nullable=False)
+    outputs = Column(TEXT, nullable=False)
+    cadence_seconds = Column(Float, nullable=False)
+    lookback_length_seconds = Column(Float, nullable=False)
+    priority = Column(Float, nullable=False)
 
 RecipeRunState = Enum("RecipeRunState", ["scheduled", "failed", "cooked", "cancelled", "cooking"])
 
-class RecipeRun(Base):
+class RecipeRunDB(Base):
     __tablename__ = 'recipe_runs'
 
     id = Column(Integer, primary_key=True)
-    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id"))
+    recipe_name: Mapped[String(128)] = mapped_column(ForeignKey("recipes.name"))
     last_update = Column(DateTime, nullable=False)
-    status = Column(RecipeRunState, nullable=False)
-    inputs = Column(TEXT, nullable=True)
+    status = Column(SQLEnum(RecipeRunState), nullable=False)
+    input_values = Column(TEXT, nullable=True)
+    output_values = Column(TEXT, nullable=True)
     schedule_time = Column(DateTime, nullable=True)
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)
 
-# import pandas as pd
-# from sqlalchemy import (Boolean, Column, DateTime, Float, Integer, String,
-#                         create_engine)
-# from sqlalchemy.orm import Session, declarative_base
-#
-# from mestolo.datetime import DateTimeInterval
-# from mestolo.ingredient import IngredientConstraint
-#
-# Base = declarative_base()
-# DATABASE_NAME = "sqlite:///database.db"
-#
-# def run_query(query):
-#     engine = create_engine(DATABASE_NAME)
-#     with engine.connect() as conn, conn.begin():
-#         return pd.read_sql_query(query, conn)
-#
-# def create_db():
-#     engine = create_engine(DATABASE_NAME)
-#     # with engine.connect() as connection:
-#     #     connection.execute(text('CREATE DATABASE IF NOT EXISTS mestolo;'))
-#     Base.metadata.create_all(engine)
-#
-# def create_session():
-#     engine = create_engine(DATABASE_NAME)
-#     return Session(engine)
-#
+
 # class NodeDB(Base):
 #     __tablename__ = "nodes"
 #     id = Column(Integer, primary_key=True)
