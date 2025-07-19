@@ -1,4 +1,6 @@
 import networkx as nx
+import matplotlib
+matplotlib.use('QtAgg') # or 'Qt5Agg', 'Qt6Agg', 'GTK3Agg', etc.
 import matplotlib.pyplot as plt
 
 date = 1
