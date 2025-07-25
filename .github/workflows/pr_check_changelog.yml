@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # To enable this workflow on a fork, comment out:
-    if: github.repository == 'scikit-plots/scikit-plots'
+    if: github.repository == 'jmbhughes/mestolo'
 
     steps:
       ## Can write comments / labels on PR from fork?
