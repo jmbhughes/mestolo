@@ -97,3 +97,54 @@ convention = "numpy"
 markers = [
     "slow: a slow test to normally skip in CI",
 ]
+
+
+[tool.gilesbot]
+[tool.gilesbot.pull_requests]
+enabled = true
+
+[tool.gilesbot.towncrier_changelog]
+enabled = true
+
+[tool.towncrier]
+package = "mestolo"
+filename = "CHANGELOG.rst"
+directory = "changelog/"
+issue_format = "`#{issue} <https://github.com/jmbhughes/mestolo/pull/{issue}>`__"
+title_format = "{version} ({project_date})"
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecation"
+name = "Deprecations"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removal"
+name = "Removals"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "New Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bug Fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "trivial"
+name = "Internal Changes"
+showcontent = true
+
