@@ -2,30 +2,18 @@ import logging
 import multiprocessing as mp
 import time
 import random
+import json
 
 from sqlalchemy import Column, DateTime, Integer, create_engine, TEXT, String, ForeignKey, inspect, Float, Boolean
 from sqlalchemy.orm import declarative_base, Session, mapped_column, Mapped
 
-DB_NAME = "sqlite:////Users/mhughes/repos/mestolo/mestolo/mestolo.db"  # TODO don't hardcode
+from mestolo.util import get_callable_from_path
+
+DB_NAME = "sqlite:///mestolo.db"  # TODO don't hardcode
 
 Base = declarative_base()
 
 logger = logging.getLogger()
-
-import numpy as np
-
-def numpy_pi(number_of_samples):
-    # Generate all random points at once
-    xs = np.random.random(size=number_of_samples)
-    ys = np.random.random(size=number_of_samples)
-
-    # Compute squared distances without square root
-    r_squareds = xs ** 2 + ys ** 2
-
-    # Count points inside unit circle
-    within_circle_count = np.sum(r_squareds < 1)
-
-    return within_circle_count / number_of_samples * 4
 
 def get_database_session():
     """Sets up a session to connect to the database"""
@@ -52,13 +40,15 @@ class RecipeRunDB(Base):
 
     def run(self, q: mp.Queue) -> None:
         logger.info(f"Running {self.id} RecipeRun.")
-        time.sleep(random.randint(1, 15))
-        # TODO: actually run recipe
-        numpy_pi(np.random.randint(1E8, 1E9))
+        recipe = self.grab_recipe()
+        parameters = json.loads(self.parameters)
+        fn = get_callable_from_path(recipe.path, recipe.name)
+        fn(**parameters)
         q.put(self.id)
 
-
-
+    def grab_recipe(self) -> RecipeDB:
+        _, session = get_database_session()
+        return session.query(RecipeDB).filter(RecipeDB.id == self.recipe).one()
 
 class ResourceUseDB(Base):
     __tablename__ = "resource_logs"
