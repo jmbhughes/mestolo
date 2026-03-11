@@ -5,7 +5,7 @@ import subprocess
 import time
 
 from .chef import Chef
-from .monitor import create_app
+from mestolo.monitor import create_app
 
 THIS_DIR = os.path.dirname(__file__)
 app = create_app()
