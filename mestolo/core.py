@@ -176,7 +176,7 @@ class MestoloSystem:
                 run_id = self._pid2run[pid]
                 try:
                     psutil_process = psutil.Process(pid)
-                    memory_usage = psutil_process.memory_info().rss / 1000000
+                    memory_usage = psutil_process.memory_info().rss / 1_000_000
                     cpu_usage = psutil_process.cpu_percent(interval=0.25)
                     error = False
                 except (psutil.ZombieProcess, psutil.NoSuchProcess):
