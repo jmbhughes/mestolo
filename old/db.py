@@ -1,81 +1,60 @@
-from enum import Enum
-import os
+import logging
+import multiprocessing as mp
+import time
+import random
+import json
 
-import pandas as pd
+from sqlalchemy import Column, DateTime, Integer, create_engine, TEXT, String, ForeignKey, inspect, Float, Boolean
+from sqlalchemy.orm import declarative_base, Session, mapped_column, Mapped
 
-from sqlalchemy import (Boolean, Column, DateTime, Float, Integer, String,
-                        create_engine, TEXT, ForeignKey, Enum as SQLEnum, text, inspect)
-from sqlalchemy.orm import Session, declarative_base, Mapped, mapped_column
+from mestolo.util import get_callable_from_path
+
+DB_NAME = "sqlite:///mestolo.db"  # TODO don't hardcode
 
 Base = declarative_base()
 
-def get_database_name():
-    return os.environ.get("MESTOLO_DATABASE", "sqlite:///mestolo.db")
+logger = logging.getLogger()
 
-def run_query(query):
-    engine = create_engine(get_database_name())
-    with engine.connect() as conn, conn.begin():
-        return pd.read_sql_query(query, conn)
-
-def create_session():
-    engine = create_engine(get_database_name())
+def get_database_session():
+    """Sets up a session to connect to the database"""
+    engine = create_engine(DB_NAME)
     if not inspect(engine).has_table("recipes"):  # it's incomplete and needs filling
         Base.metadata.create_all(engine)
-    return Session(engine)
+    session = Session(engine)
+    return engine, session
 
 class RecipeDB(Base):
     __tablename__ = "recipes"
-    name = Column(String(128), nullable=False, primary_key=True)
-    inputs = Column(TEXT, nullable=False)
-    outputs = Column(TEXT, nullable=False)
-    cadence_seconds = Column(Float, nullable=False)
-    lookback_length_seconds = Column(Float, nullable=False)
-    priority = Column(Float, nullable=False)
-
-RecipeRunState = Enum("RecipeRunState", ["scheduled", "failed", "cooked", "cancelled", "cooking"])
+    id = Column(Integer, primary_key=True)
+    path = Column(String(128), nullable=False)
+    name = Column(String(128), nullable=False)
 
 class RecipeRunDB(Base):
-    __tablename__ = 'recipe_runs'
-
-    id = Column(Integer, primary_key=True)
-    recipe_name: Mapped[String(128)] = mapped_column(ForeignKey("recipes.name"))
-    last_update = Column(DateTime, nullable=False)
-    status = Column(SQLEnum(RecipeRunState), nullable=False)
-    input_values = Column(TEXT, nullable=True)
-    output_values = Column(TEXT, nullable=True)
-    schedule_time = Column(DateTime, nullable=True)
+    __tablename__ = "recipe_runs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scheduled_time = Column(DateTime, nullable=True)
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)
+    parameters = Column(TEXT, nullable=True)
+    recipe: Mapped[Integer] = mapped_column(ForeignKey("recipes.id"))
 
+    def run(self, q: mp.Queue) -> None:
+        logger.info(f"Running {self.id} RecipeRun.")
+        recipe = self.grab_recipe()
+        parameters = json.loads(self.parameters)
+        fn = get_callable_from_path(recipe.path, recipe.name)
+        fn(**parameters)
+        q.put(self.id)
 
-# class NodeDB(Base):
-#     __tablename__ = "nodes"
-#     id = Column(Integer, primary_key=True)
-#     name = Column(String(64), nullable=False)
-#     start_time = Column(DateTime, nullable=True)
-#     end_time = Column(DateTime, nullable=True)
-#     state = Column(Integer, nullable=False)
-#     count = Column(Integer, nullable=True)
-#     posx = Column(Float, nullable=True)
-#     posy = Column(Float, nullable=True)
-#
-#     def to_ingredient_constraint(self):
-#         return IngredientConstraint(self.name, DateTimeInterval(self.start_time, self.end_time), self.count)
-#
-#
-# class EdgesDB(Base):
-#     __tablename__ = "edges"
-#     id = Column(Integer, primary_key=True)
-#     source = Column(Integer, nullable=False)
-#     sink = Column(Integer, nullable=False)
-#     active = Column(Boolean, nullable=False, default=True)
-#
-#
-# class ScheduledIngredientDB(Base):
-#     __tablename__ = "scheduled_ingredient"
-#     id = Column(Integer, primary_key=True)
-#     schedule_time = Column(DateTime, nullable=False)
-#     current_priority = Column(Float, nullable=False)
-#     recipe = Column(String(64), nullable=False)
-#     node = Column(Integer, nullable=False)
-#     active = Column(Boolean, nullable=False, default=True)
+    def grab_recipe(self) -> RecipeDB:
+        _, session = get_database_session()
+        return session.query(RecipeDB).filter(RecipeDB.id == self.recipe).one()
+
+class ResourceUseDB(Base):
+    __tablename__ = "resource_logs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    memory = Column(Float)
+    cpu = Column(Float)
+    time = Column(DateTime, nullable=False)
+    error = Column(Boolean)
+    run_id: Mapped[Integer] = mapped_column(ForeignKey("recipe_runs.id"))

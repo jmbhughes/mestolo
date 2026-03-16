@@ -1,0 +1,333 @@
+from __future__ import annotations
+
+import os
+import subprocess
+import logging
+import functools
+import random
+import sys
+import math
+import signal
+import time
+from abc import abstractmethod, ABC, ABCMeta
+from typing import Any, Callable
+from datetime import datetime, timedelta
+import logging
+import queue
+import json
+import pickle
+
+import psutil
+import multiprocess as mp
+
+from mestolo.monitor.app import create_app
+from mestolo.db import get_database_session, RecipeDB, RecipeRunDB, ResourceUseDB
+from mestolo.util import get_callable_path
+
+THIS_DIR = os.path.dirname(__file__)
+
+logger = logging.getLogger()
+# app = create_app()
+
+class MestoloConfiguration:
+    def __init__(self, num_cooks: int,
+                 duration_seconds: float = math.inf,
+                 refresh_seconds: int = 1):
+        self._num_cooks = num_cooks
+        self._duration_seconds = duration_seconds
+        self._refresh_seconds = refresh_seconds
+
+    @property
+    def num_cooks(self):
+        return self._num_cooks
+
+    @property
+    def duration(self) -> timedelta | None:
+        if self._duration_seconds < math.inf:
+            value = timedelta(seconds=self._duration_seconds)
+        else:
+            value = None
+        return value
+
+    @property
+    def refresh_rate(self) -> timedelta:
+        return timedelta(seconds=self._refresh_seconds)
+
+class Scheduler(metaclass=ABCMeta):
+    def __init__(self):
+        self._registered = False
+
+    @abstractmethod
+    def schedule(self) -> list[dict]:
+        pass
+
+    @abstractmethod
+    def check_trigger(self) -> bool:
+        pass
+
+    @abstractmethod
+    def mark_run(self) -> None:
+        pass
+
+    def register_db(self, rid: int) -> None:
+        self._recipe_id = rid
+        self._registered = True
+
+class IntervalScheduler(Scheduler):
+    def __init__(self, frequency: timedelta, query: Callable):
+        self._frequency = frequency
+        self._query = query
+        self._start_time = datetime.now()
+        self._last_ran = datetime.now()
+        super().__init__()
+
+    def schedule(self) -> list[dict]:
+        if not self._registered:
+            raise RuntimeError("Must be registered before scheduling.")
+
+        self.mark_run()
+        parameters = self._query()
+        return [{"scheduled_time": datetime.now(), "recipe": self._recipe_id, "parameters": json.dumps(parameters)}] 
+
+    def check_trigger(self) -> bool:
+        return datetime.now() - self._last_ran > self._frequency
+
+    def mark_run(self) -> None:
+        self._last_ran = datetime.now()
+
+class MestoloSystem:
+    def __init__(self, mestolo_pairs: list[tuple[MestoloRecipe, Scheduler]] = None, with_monitor: bool = True):
+        self._engine, self._session = get_database_session()
+
+        self._mestolo_recipes: list[MestoloRecipe] = []
+        self._schedulers: list[Scheduler] = []
+        self._recipe2id  = {}
+
+        for recipe, scheduler_list in mestolo_pairs:
+            rid = self.add_recipe(recipe)
+            self._recipe2id[recipe] = rid
+            for scheduler in scheduler_list:
+                self.add_scheduler(scheduler, recipe)
+
+        self._processes: list[mp.Process] = []
+        self._pid2run: dict[int, int] = {}
+
+        if with_monitor:
+            self._monitor = mp.Process(target=app.run)
+            self._monitor.start()
+        else:
+            self._monitor = None
+
+        self._running = False
+        self._finish_queue = mp.Queue()
+
+
+    def add_recipe(self, p: MestoloRecipe) -> int:
+        self._mestolo_recipes.append(p)
+        path = str(get_callable_path(p.function))
+        name = p.function.__name__
+        r = RecipeDB(path=path, name=name)
+        self._session.add(r)
+        self._session.commit()
+        return r.id
+
+    def add_scheduler(self, s: Scheduler, recipe: MestoloRecipe) -> None:
+        self._schedulers.append(s)
+        s.register_db(self._recipe2id[recipe])
+
+    def run(self, config: MestoloConfiguration):
+        self._running = True
+
+        def handler(this_signal, frame):
+            self._running = False
+            logger.info("Ending run because of SIGINT.")
+
+        signal.signal(signal.SIGINT, handler)
+
+        start_time = datetime.now()
+        while self._running:
+            logger.info("Starting next loop.")
+            loop_start_time = datetime.now()
+
+            self._mark_end_times()
+            self._clean_processes()
+            self._run_schedulers()
+            self._start_new_processes(config)
+            self._monitor_resources()
+            self._check_for_duration_termination(config, start_time)
+
+            loop_end_time = datetime.now()
+            loop_duration = loop_end_time - loop_start_time
+            sleep_time = max((config.refresh_rate - loop_duration).total_seconds(), 0)
+            logger.info(f"Ending loop. Sleeping for {sleep_time} seconds.")
+            time.sleep(sleep_time)
+        else:
+            errors = self.stop()
+
+        end_time = datetime.now()
+        logger.info(f"Stopping at {end_time} after duration = {end_time - start_time}.")
+        return errors
+
+    def _monitor_resources(self):
+        logs = []
+        for p in self._processes:
+            pid = p.pid
+            if pid is not None:
+                run_id = self._pid2run[pid]
+                try:
+                    psutil_process = psutil.Process(pid)
+                    memory_usage = psutil_process.memory_info().rss / 1_000_000
+                    cpu_usage = psutil_process.cpu_percent(interval=0.25)
+                    error = False
+                except (psutil.ZombieProcess, psutil.NoSuchProcess):
+                    memory_usage = 0
+                    cpu_usage = 0
+                    error = True
+                resource_log = ResourceUseDB(
+                    memory=memory_usage,
+                    cpu=cpu_usage,
+                    time=datetime.now(),
+                    run_id=run_id,
+                    error=error
+                )
+                logs.append(resource_log)
+        self._session.add_all(logs)
+        self._session.commit()
+
+
+    def _check_for_duration_termination(self, config, start_time):
+        # check for duration termination
+        if config.duration is not None:
+            elapsed = datetime.now() - start_time
+            if elapsed > config.duration:
+                logger.info("Ending run because duration has been met.")
+                self.stop()
+
+    def _start_new_processes(self, config):
+        num_free_chefs = config.num_cooks - len(self._processes)
+        logger.info(f"Can start {num_free_chefs} new processes.")
+
+        if num_free_chefs:
+            next_runs = self._get_next(num_free_chefs)
+            for r in next_runs:
+                r.start_time = datetime.now()
+            new_processes = [mp.Process(target=r.run, args=[self._finish_queue])
+                             for r in next_runs]
+        else:
+            new_processes = []
+            next_runs = []
+        self._processes.extend(new_processes)
+        [r.start() for r in new_processes]
+        for p, r in zip(new_processes, next_runs, strict=True):
+            self._pid2run[p.pid] = r.id
+        logger.info(f"Started {len(new_processes)} new processes.")
+
+    def _get_next(self, n: int) -> list[RecipeRunDB]:
+        if n <= 0:
+            raise RuntimeError("n must be > 0.")
+
+        # TODO: make sure this gets the oldest
+        runs = (self._session.query(RecipeRunDB)
+                .filter(RecipeRunDB.start_time.is_(None))
+                .order_by(RecipeRunDB.scheduled_time)
+                .limit(n)
+                .all())
+        return runs
+
+    def _run_schedulers(self):
+        schedulers_to_run = [s for s in self._schedulers if s.check_trigger()]
+        logger.info(f"{len(schedulers_to_run)} schedulers will run.")
+        new_items = []
+
+        with mp.Pool() as pool:
+            for scheduler in schedulers_to_run:
+                new_items.extend(pool.apply(scheduler.schedule))
+
+        for scheduler in schedulers_to_run:
+            scheduler.mark_run()
+
+        if new_items:
+            self._session.add_all([RecipeRunDB(**item) for item in new_items])
+            self._session.commit()
+
+    def _mark_end_times(self):
+        run_ids = []
+        try:
+            while new_id := self._finish_queue.get(block=False):
+                run_ids.append(new_id)
+        except queue.Empty:
+            run_ids.append(-1)
+        recipe_runs = self._session.query(RecipeRunDB).where(RecipeRunDB.id.in_(run_ids)).all()
+        for r in recipe_runs:
+            r.end_time = datetime.now()
+        self._session.commit()
+
+    def _clean_processes(self) -> int:
+        initial_process_count = len(self._processes)
+        self._processes = [p for p in self._processes if p.is_alive()]
+        num_cleaned = initial_process_count - len(self._processes)
+        logger.info(f"Closed {num_cleaned} processes.")
+        return num_cleaned
+
+    @property
+    def is_running(self) -> bool:
+        return self._running
+
+    def stop(self) -> list[Exception]:
+        self._running = False
+        for p in self._processes:
+            p.join()
+            # p.kill()
+        #TODO: return errors
+        self._mark_end_times()
+        if self._monitor is not None:
+            self._monitor.join()
+        return []
+
+class MestoloRecipe:
+    def __init__(self, function: Callable[[...], None]):
+        self.function = function
+    
+    def run(self):
+        pass
+
+class Watchdog(MestoloRecipe):
+    pass
+
+def add_one(x: int) -> None:
+    print("adding one")
+
+def subtract_one(x: int) -> None:
+    print("subtracting one")
+
+
+if __name__ == "__main__":
+    import numpy as np
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.StreamHandler(sys.stdout),  # Outputs to stdout
+        ]
+    )
+
+    # monitor_process = subprocess.Popen(["gunicorn",
+    #                                     "-b", "0.0.0.0:8050",
+    #                                     "--chdir", THIS_DIR + '/monitor',
+    #                                     "app:server"])
+    #
+    # time.sleep(5)
+
+    configuration = MestoloConfiguration(num_cooks=5, duration_seconds=60, refresh_seconds=1)
+
+    add_one_process = MestoloRecipe(add_one)
+    add_one_scheduler = IntervalScheduler(timedelta(seconds=4), lambda: {"x": np.random.randint(0, 10)})
+
+    subtract_one_process = MestoloRecipe(subtract_one)
+    subtract_one_scheduler = IntervalScheduler(timedelta(seconds=5), lambda: {"x": np.random.randint(0, 10)})
+
+    system = MestoloSystem([(add_one_process, [add_one_scheduler]), (subtract_one_process, [subtract_one_scheduler])], with_monitor=False)
+    system.run(configuration)
+    print("DONE")
+
+    # monitor_process.terminate()
